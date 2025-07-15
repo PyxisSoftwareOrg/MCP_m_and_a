@@ -44,6 +44,42 @@ openpyxl>=3.1.0  # For XLSX export functionality
 xlsxwriter>=3.1.0  # Alternative XLSX writer
 ```
 
+## MCP Tools
+
+The server implements 19 MCP tools:
+
+Core Analysis Tools:
+- `analyze_company`: Full company analysis orchestration
+- `scrape_website`: Intelligent website scraping
+- `get_linkedin_data`: LinkedIn company data via Apify
+- `score_dimension`: Generic scoring for 8 dimensions
+- `enrich_company_data`: Enhance data from additional sources
+
+History & Comparison:
+- `get_company_history`: Historical analysis retrieval
+- `compare_analyses`: Compare two analyses
+
+Bulk Operations:
+- `bulk_analyze`: Parallel multi-company analysis
+- `bulk_filter`: Filter multiple companies against criteria
+- `run_custom_scoring`: Run specific scoring systems on companies
+
+Search & Export:
+- `search_companies`: Search analyzed companies by criteria
+- `export_report`: Generate formatted reports
+- `generate_xlsx_export`: Generate downloadable XLSX files
+
+Lead Management:
+- `qualify_lead`: Complete multi-tier qualification including Q1-Q5
+- `generate_investment_thesis`: AI-powered investment thesis generation
+- `manage_lead_nurturing`: Update lead tier and nurturing activities
+
+Configuration & Override:
+- `manage_scoring_systems`: Create and manage custom scoring systems
+- `override_company_tier`: Manually override tier classifications
+- `manage_company_lists`: Manage active and future candidate lists
+- `update_metadata`: Manual metadata updates
+
 ## Web Sources for Company Information
 
 ### Free Access Sources
@@ -308,23 +344,27 @@ The system implements a multi-tier filtering and scoring approach to identify hi
 
 ### Likelihood Assessment Factors
 
+The system collects data on these factors when available. If no data is found, it will note "No data found for this topic."
+
 #### Market & Competitive Position
-- **Payment Processing**: Revenue model and payment mechanisms
-- **Customer Concentration**: Risk assessment of customer dependency
-- **Growth Trajectory**: Historical and projected growth patterns
-- **TAM & Competition**: Market size and competitive landscape
+- **Payment Processing**: Note any revenue model and payment mechanisms data found
+- **Customer Concentration**: Note any customer dependency or concentration data found
+- **Growth Trajectory**: Note any historical or projected growth data found
+- **TAM & Competition**: Note any market size or competitive landscape data found
 
 #### Organizational Factors
-- **Number & Location of Staff**: Team size and geographic distribution
-- **Seller's Growth Ambitions**: Management's expansion goals
-- **Seller's Challenges**: Current business challenges and pain points
-- **Ownership & Changes**: Current ownership structure and recent changes
+- **Number & Location of Staff**: Note any team size and geographic distribution data found
+- **Seller's Growth Ambitions**: Note any management expansion goals data found
+- **Seller's Challenges**: Note any business challenges or pain points data found
+- **Ownership & Changes**: Note any ownership structure or recent changes data found
 
 #### Transaction Readiness
-- **Value Expectations**: Owner's price expectations and valuation basis
-- **Sale Timing**: Timeline and urgency for potential transaction
-- **Owner Motivations**: Primary drivers for considering a sale
-- **What is Motivating Sale**: Specific catalysts (retirement, growth capital, etc.)
+- **Value Expectations**: Note any price expectations or valuation data found
+- **Sale Timing**: Note any timeline or urgency indicators found
+- **Owner Motivations**: Note any drivers for considering a sale found
+- **What is Motivating Sale**: Note any specific catalysts data found (retirement, growth capital, etc.)
+
+**Data Collection Approach**: The system searches for this information but does not require it. Each factor will either show the data found or "No data found for this topic."
 
 ### Filtering Rules Configuration
 
@@ -470,15 +510,16 @@ class LeadClassification(BaseModel):
 
 ### Nurturing Framework (Middle of Funnel)
 
-#### Lead Cohort Classification
+#### Lead Cohort Classification with Manual Override
 
 | Tier | Criteria | BD Contact Frequency | Executive Involvement | Key Activities |
 |------|----------|---------------------|----------------------|----------------|
-| **VIP** | Score 9.0+<br>Strategic fit<br>Immediate opportunity | Weekly | Direct CEO/VP M&A engagement | • Executive dinners<br>• Site visits<br>• Advisory relationships |
-| **HIGH** | Score 8.0-8.9<br>Strong strategic fit | Bi-weekly | PM/VP M&A quarterly | • Industry events<br>• Webinars<br>• Advisory calls |
-| **MEDIUM** | Score 7.0-7.9<br>Potential fit | Monthly | BD managed with exec review | • Newsletters<br>• Industry reports<br>• Quarterly check-ins |
+| **VIP** | Score 8.0+<br>Strategic fit<br>Immediate opportunity<br>**OR Manual Override** | Weekly | Direct CEO/VP M&A engagement | • Executive dinners<br>• Site visits<br>• Advisory relationships |
+| **HIGH** | Score 7.0-7.9<br>Strong strategic fit<br>**OR Manual Override** | Bi-weekly | PM/VP M&A quarterly | • Industry events<br>• Webinars<br>• Advisory calls |
+| **MEDIUM** | Score 5.0-6.9<br>Potential fit<br>**OR Manual Override** | Monthly | BD managed with exec review | • Newsletters<br>• Industry reports<br>• Quarterly check-ins |
 
 **VIP Tier Priority**: Top 10-15 targets receive in-person engagement priority
+**Manual Override**: BD and Executive teams can manually override automated tier assignments
 
 #### Sales Plan Framework
 
@@ -494,7 +535,101 @@ Each acquisition target requires a customized sales plan with three key componen
 |----------|------------|-------------|
 | **Strategic Rationale** | VMS Alignment<br>Portfolio Synergies<br>Market Expansion<br>Competitive Advantage | Vertical market fit analysis<br>Cross-selling and integration opportunities<br>Geographic or product expansion potential<br>Unique positioning and moats |
 | **Financial Profile** | Revenue Quality<br>Growth Trajectory<br>Profitability Path<br>Valuation Framework | Recurring vs one-time revenue<br>Historical and projected growth<br>EBITDA improvement opportunities<br>Multiple and pricing considerations |
-| **Execution Factors** | Integration Complexity<br>Management Retention<br>Customer Retention<br>Risk Mitigation | Technical and operational integration<br>Key personnel and cultural fit<br>Customer concentration and satisfaction<br>Key risks and mitigation strategies |\n\n### CRM Integration & Data Flow\n\n#### Salesforce Integration\n- **Data Synchronization**: Bi-directional sync with MCP analysis results\n- **Lead Scoring**: Automated Q1-Q5 scoring updates\n- **Activity Tracking**: BD and executive engagement logging\n- **Pipeline Management**: Stage progression and probability updates\n\n#### Communication Systems\n- **Newsletter Automation**: Tier-specific content delivery\n- **Event Coordination**: Industry event planning and follow-up\n- **Executive Calendar**: Strategic meeting scheduling and preparation\n\n## Scoring Dimensions
+| **Execution Factors** | Integration Complexity<br>Management Retention<br>Customer Retention<br>Risk Mitigation | Technical and operational integration<br>Key personnel and cultural fit<br>Customer concentration and satisfaction<br>Key risks and mitigation strategies |
+
+### Company Lists Management
+
+#### Active Acquisition List
+Companies actively being pursued for acquisition:
+- **Criteria**: Passed all qualification filters and scoring thresholds
+- **Size**: Typically 50-100 companies
+- **Monitoring**: Real-time scoring updates and alerts
+- **Review**: Weekly BD review, monthly executive review
+
+#### Future Candidate List
+Companies to monitor for future opportunities:
+- **Criteria**: High potential but not yet ready (funding recency, size, timing)
+- **Size**: 200-500 companies
+- **Monitoring**: Quarterly rescoring and status updates
+- **Promotion**: Automatic promotion to Active List when criteria met
+
+#### List Management Features
+```python
+class CompanyList(BaseModel):
+    list_type: str  # "active" or "future_candidate"
+    company_name: str
+    added_date: str
+    added_by: str
+    
+    # Automated classification
+    automated_tier: str  # "VIP", "HIGH", "MEDIUM", "LOW"
+    automated_score: float
+    
+    # Manual overrides
+    manual_tier_override: Optional[str] = None  # Can override automated tier
+    override_reason: Optional[str] = None
+    override_by: Optional[str] = None
+    override_date: Optional[str] = None
+    
+    # Monitoring settings
+    monitoring_frequency: str  # "weekly", "monthly", "quarterly"
+    alert_thresholds: Dict[str, float]
+    
+    # Transition history
+    promotion_criteria_met: bool = False
+    promotion_blockers: List[str] = []
+```
+
+### CRM Integration & Data Flow
+
+#### Salesforce Integration
+- **Data Synchronization**: Bi-directional sync with MCP analysis results
+- **Lead Scoring**: Automated Q1-Q5 scoring updates
+- **Activity Tracking**: BD and executive engagement logging
+- **Pipeline Management**: Stage progression and probability updates
+
+#### Communication Systems
+- **Newsletter Automation**: Tier-specific content delivery
+- **Event Coordination**: Industry event planning and follow-up
+- **Executive Calendar**: Strategic meeting scheduling and preparation\n\n## Scoring System Architecture
+
+### Multiple Scoring Systems Support
+
+The M&A Research Assistant supports multiple scoring systems running in parallel:
+
+1. **Default Scoring System**: The standard 8-dimension scoring framework
+2. **Custom Scoring Systems**: User-defined scoring systems with their own dimensions and weights
+3. **Parallel Execution**: All scoring systems run after company data collection
+4. **System Management**: Create, modify, and manage multiple scoring systems
+
+#### Scoring System Configuration
+```python
+class ScoringSystem(BaseModel):
+    system_id: str  # Unique identifier
+    system_name: str  # Human-readable name
+    owner: str  # User who created this system
+    is_active: bool = True
+    is_default: bool = False  # Only one default system
+    created_at: str
+    updated_at: str
+    
+    dimensions: List[ScoringDimension]
+    weights: Dict[str, float]  # Dimension weights
+    thresholds: Dict[str, float]  # Score thresholds
+    
+    # Custom scoring logic
+    custom_prompts: Dict[str, str] = {}
+    custom_rules: Dict[str, Any] = {}
+    
+class ScoringDimension(BaseModel):
+    dimension_id: str
+    dimension_name: str
+    score_range: Tuple[float, float]  # (min, max)
+    scoring_criteria: str
+    llm_prompt_template: str
+```
+
+## Scoring Dimensions (Default System)
 
 ### 1. Vertical Market Software (VMS) Score
 **Range**: 0-5  
@@ -1067,6 +1202,105 @@ Each acquisition target requires a customized sales plan with three key componen
 }
 ```
 
+### 16. `manage_scoring_systems`
+**Description**: Create, update, and manage custom scoring systems
+
+**Input Schema**:
+```python
+{
+    "action": str,  # "create", "update", "delete", "list", "activate", "deactivate"
+    "system_id": str = None,  # Required for update/delete
+    "system_config": ScoringSystem = None,  # For create/update
+    "set_as_default": bool = False
+}
+```
+
+**Output Schema**:
+```python
+{
+    "success": bool,
+    "system_id": str,
+    "systems": List[ScoringSystem],  # For list action
+    "message": str,
+    "error": str  # Only if success=False
+}
+```
+
+### 17. `override_company_tier`
+**Description**: Manually override the automated tier classification
+
+**Input Schema**:
+```python
+{
+    "company_name": str,
+    "new_tier": str,  # "VIP", "HIGH", "MEDIUM", "LOW"
+    "override_reason": str,
+    "override_by": str,  # User making the override
+    "notify_team": bool = True
+}
+```
+
+**Output Schema**:
+```python
+{
+    "success": bool,
+    "company_name": str,
+    "previous_tier": str,
+    "new_tier": str,
+    "effective_date": str,
+    "notification_sent": bool,
+    "error": str  # Only if success=False
+}
+```
+
+### 18. `manage_company_lists`
+**Description**: Manage active and future candidate lists
+
+**Input Schema**:
+```python
+{
+    "action": str,  # "add", "remove", "move", "list", "promote"
+    "list_type": str,  # "active", "future_candidate"
+    "company_names": List[str],
+    "target_list": str = None,  # For "move" action
+    "filters": dict = None  # For "list" action
+}
+```
+
+**Output Schema**:
+```python
+{
+    "success": bool,
+    "affected_companies": List[str],
+    "companies": List[dict],  # For "list" action
+    "promotion_results": dict,  # For "promote" action
+    "error": str  # Only if success=False
+}
+```
+
+### 19. `run_custom_scoring`
+**Description**: Run a specific scoring system on companies
+
+**Input Schema**:
+```python
+{
+    "company_names": List[str],
+    "system_ids": List[str],  # Which scoring systems to run
+    "include_default": bool = True,
+    "force_rescore": bool = False
+}
+```
+
+**Output Schema**:
+```python
+{
+    "success": bool,
+    "scoring_results": Dict[str, Dict[str, ScoringSystemResult]],  # company -> system -> results
+    "processing_time": float,
+    "error": str  # Only if success=False
+}
+```
+
 ## XLSX Export Specifications
 
 ### Sheet Structure
@@ -1150,20 +1384,48 @@ class AnalysisResult(BaseModel):
     website_url: str
     linkedin_url: Optional[str]
     
+    # List management
+    list_type: str  # "active" or "future_candidate"
+    
     qualification_result: QualificationResult  # Multi-tier qualification
-    scores: Dict[str, ScoreDimension]
-    overall_score: float  # Weighted average
+    
+    # Multiple scoring systems support
+    scoring_results: Dict[str, ScoringSystemResult]  # key: system_id
+    default_scores: Dict[str, ScoreDimension]  # Default system scores
+    overall_score: float  # Weighted average from default system
+    
     recommendation: str  # "Strong Buy", "Buy", "Hold", "Pass", "DISQUALIFIED"
     
     key_strengths: List[str]
     key_concerns: List[str]
     
-    lead_tier: str  # "VIP", "HIGH", "MEDIUM", "LOW"
+    # Tier classification with override support
+    automated_tier: str  # "VIP", "HIGH", "MEDIUM", "LOW"
+    manual_tier_override: Optional[str] = None
+    override_metadata: Optional[OverrideMetadata] = None
+    effective_tier: str  # Final tier (manual override or automated)
+    
+    # Likelihood assessment data
+    likelihood_factors: Dict[str, Optional[str]]  # Factor name -> data found or "No data found"
+    
     investment_thesis: Optional[dict] = None
     nurturing_plan: Optional[dict] = None
     
     metadata: AnalysisMetadata
     export_metadata: Optional[ExportMetadata] = None  # For XLSX export tracking
+
+class ScoringSystemResult(BaseModel):
+    system_id: str
+    system_name: str
+    scores: Dict[str, ScoreDimension]
+    overall_score: float
+    custom_metrics: Dict[str, Any] = {}
+    
+class OverrideMetadata(BaseModel):
+    override_by: str
+    override_date: str
+    override_reason: str
+    previous_tier: str
     
 class ScoreDimension(BaseModel):
     score: float
@@ -1412,12 +1674,28 @@ s3://ma-research-bucket/
 │   │   │   ├── analysis.json          # Complete analysis results
 │   │   │   ├── raw_website_content.json  # Scraped content
 │   │   │   ├── linkedin_data.json    # LinkedIn information
-│   │   │   └── metadata.json         # Processing metadata
+│   │   │   ├── metadata.json         # Processing metadata
+│   │   │   ├── scoring/              # All scoring system results
+│   │   │   │   ├── default.json     # Default scoring system
+│   │   │   │   ├── {system-id}.json  # Custom scoring systems
+│   │   │   │   └── scoring_summary.json  # Combined results
+│   │   │   └── overrides.json       # Manual tier overrides
 │   │   ├── latest/                   # Copy of most recent analysis
 │   │   └── company_metadata.json     # Persistent company info
 │   └── _index/
+│       ├── active_companies.json     # Active acquisition list
+│       ├── future_candidates.json    # Future candidate list
 │       ├── companies_list.json       # All companies with latest scores
 │       └── analysis_calendar.json    # Timeline of all analyses
+├── scoring_systems/
+│   ├── default/
+│   │   ├── configuration.json       # Default system config
+│   │   └── prompts.json             # Default prompts
+│   ├── {system-id}/
+│   │   ├── configuration.json       # Custom system config
+│   │   ├── prompts.json             # Custom prompts
+│   │   └── metadata.json            # System metadata
+│   └── _registry.json               # All scoring systems
 ├── reports/
 │   ├── {report-id}/
 │   │   └── report.{format}
@@ -1430,7 +1708,8 @@ s3://ma-research-bucket/
 │           └── {export-id}.xlsx
 └── config/
     ├── scoring_weights.json
-    └── system_config.json
+    ├── system_config.json
+    └── list_management.json         # Company list configs
 ```
 
 ### File Naming Conventions
