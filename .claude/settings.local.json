@@ -28,7 +28,9 @@
       "Bash(docker stop:*)",
       "Bash(docker rm:*)",
       "Bash(curl:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(find:*)",
+      "Bash(true)"
     ],
     "deny": []
   }
