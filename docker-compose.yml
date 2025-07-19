@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  ma-research-mcp:
+    build: .
+    container_name: ma-research-assistant
+    ports:
+      - "8000:8000"
+    environment:
+      # AWS Configuration
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
+      
+      # AWS Bedrock Configuration
+      - BEDROCK_REGION=${BEDROCK_REGION}
+      - BEDROCK_PRIMARY_MODEL=${BEDROCK_PRIMARY_MODEL}
+      - BEDROCK_FALLBACK_MODEL=${BEDROCK_FALLBACK_MODEL}
+      
+      # API Keys
+      - APIFY_API_TOKEN=${APIFY_API_TOKEN}
+      
+      # MCP Configuration
+      - MCP_SERVER_NAME=${MCP_SERVER_NAME}
+      - MCP_SERVER_VERSION=${MCP_SERVER_VERSION}
+      - MCP_MODE=http
+      
+      # Feature Flags
+      - ENABLE_CACHING=${ENABLE_CACHING}
+      - MAX_PARALLEL_ANALYSES=${MAX_PARALLEL_ANALYSES}
+      
+      # Lead Qualification Thresholds
+      - QUALIFICATION_MINIMUM_SCORE=${QUALIFICATION_MINIMUM_SCORE}
+      - TIER_VIP_THRESHOLD=${TIER_VIP_THRESHOLD}
+      - TIER_HIGH_THRESHOLD=${TIER_HIGH_THRESHOLD}
+      - TIER_MEDIUM_THRESHOLD=${TIER_MEDIUM_THRESHOLD}
+      
+      # Rate Limiting
+      - BEDROCK_REQUESTS_PER_MINUTE=${BEDROCK_REQUESTS_PER_MINUTE}
+      - BEDROCK_TOKENS_PER_MINUTE=${BEDROCK_TOKENS_PER_MINUTE}
+      - BEDROCK_MAX_CONCURRENT=${BEDROCK_MAX_CONCURRENT}
+      - APIFY_REQUESTS_PER_HOUR=${APIFY_REQUESTS_PER_HOUR}
+      - WEB_SCRAPING_REQUESTS_PER_SECOND=${WEB_SCRAPING_REQUESTS_PER_SECOND}
+      - WEB_SCRAPING_CONCURRENT_DOMAINS=${WEB_SCRAPING_CONCURRENT_DOMAINS}
+      
+      # Resource Limits
+      - MAX_MEMORY_PER_ANALYSIS=${MAX_MEMORY_PER_ANALYSIS}
+      - MAX_WEBSITE_CONTENT_SIZE=${MAX_WEBSITE_CONTENT_SIZE}
+      - MAX_PAGES_PER_COMPANY=${MAX_PAGES_PER_COMPANY}
+      - MAX_ANALYSIS_TIME=${MAX_ANALYSIS_TIME}
+      - MAX_RETRY_ATTEMPTS=${MAX_RETRY_ATTEMPTS}
+      
+      # Cache Configuration
+      - CACHE_WEBSITE_CONTENT_HOURS=${CACHE_WEBSITE_CONTENT_HOURS}
+      - CACHE_LINKEDIN_DATA_DAYS=${CACHE_LINKEDIN_DATA_DAYS}
+      - CACHE_PAID_API_DAYS=${CACHE_PAID_API_DAYS}
+      
+      # Security
+      - ENCRYPT_SENSITIVE_DATA=${ENCRYPT_SENSITIVE_DATA}
+      - AUDIT_ALL_OPERATIONS=${AUDIT_ALL_OPERATIONS}
+      - REQUIRE_MFA_FOR_EXPORTS=${REQUIRE_MFA_FOR_EXPORTS}
+    
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+    
+    restart: unless-stopped
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  default:
+    name: ma-research-network

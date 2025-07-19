@@ -12,7 +12,23 @@
       "Bash(ls:*)",
       "Bash(python3:*)",
       "Bash(unlink:*)",
-      "Bash(/usr/bin/git status)"
+      "Bash(/usr/bin/git status)",
+      "Bash(mkdir:*)",
+      "Bash(source:*)",
+      "Bash(pip install:*)",
+      "Bash(python:*)",
+      "Bash(timeout:*)",
+      "Bash(chmod:*)",
+      "Bash(export:*)",
+      "Bash(pip show:*)",
+      "Bash(touch:*)",
+      "Bash(docker build:*)",
+      "Bash(docker run:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker stop:*)",
+      "Bash(docker rm:*)",
+      "Bash(curl:*)",
+      "Bash(git reset:*)"
     ],
     "deny": []
   }
