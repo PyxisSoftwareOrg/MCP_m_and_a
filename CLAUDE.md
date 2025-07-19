@@ -115,6 +115,16 @@ Check the prd.md file for detailed implementation requirements. The project uses
 - Docker containerization
 - Health check endpoints
 
+## Test Companies
+
+For development and testing purposes, use these companies:
+
+- **Jonas Fitness**: Fitness management software
+- **ClubWise**: UK-based club management platform  
+- **runsignup.com**: Race registration and event management
+
+These provide diverse test cases across different software verticals in the sports/fitness industry.
+
 ## Security
 
 - All S3 data encrypted (AES-256)
