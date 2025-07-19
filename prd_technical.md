@@ -17,23 +17,29 @@
 
 ### Technology Stack
 - **Language**: Python 3.11+
-- **MCP Framework**: FastMCP 2.9+ (configured for streamable HTTP as default, STDIO only if requested)
-- **Storage**: AWS S3
-- **Web Scraping**: Beautiful Soup 4, Requests
-- **LinkedIn Data**: Apify API
-- **LLM Integration**: AWS Bedrock (Claude 3.5 Sonnet, Nova Pro)
-- **Data Processing**: Pandas, JSON
+- **MCP Framework**: FastMCP 2.10.5 with MCP 1.12.0 (streamable HTTP transport)
+- **HTTP Server**: uvicorn with FastAPI integration
+- **Containerization**: Docker with production configuration
+- **Storage**: AWS S3 with versioning and lifecycle policies
+- **Web Scraping**: Beautiful Soup 4, Requests with intelligent priority targeting
+- **LinkedIn Data**: Apify API integration
+- **LLM Integration**: AWS Bedrock (Claude 3.5 Sonnet primary, Nova Pro fallback)
+- **Data Processing**: Pandas, JSON with Pydantic v2 validation
 
 ### External Dependencies
 
 **NOTE: Always review library websites to get the latest version of software and use those. The versions listed below are minimums. Example review: https://pypi.org/ for Python packages, https://www.npmjs.com/ for Node.js packages, and https://www.nuget.org/ for .NET packages.**
 
 ```python
-fastmcp>=2.9.0
+fastmcp>=2.10.5
 boto3>=1.28.0
 beautifulsoup4>=4.12.0
 requests>=2.31.0
 botocore>=1.31.0  # For Bedrock API
+mcp>=1.12.0  # MCP protocol support
+uvicorn>=0.30.0  # ASGI server for HTTP transport
+fastapi>=0.110.0  # FastAPI integration
+sse-starlette>=1.6.0  # Server-sent events
 pandas>=2.0.0
 pydantic>=2.0.0
 python-dateutil>=2.8.0
@@ -41,6 +47,15 @@ aiohttp>=3.9.0
 tenacity>=8.2.0  # For retry logic
 openpyxl>=3.1.0  # For XLSX export functionality
 xlsxwriter>=3.1.0  # Alternative XLSX writer
+
+# Development dependencies
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+pytest-mock>=3.10.0
+black>=23.0.0
+isort>=5.12.0
+mypy>=1.0.0
+pre-commit>=3.0.0
 ```
 
 ## MCP Tools Implementation
@@ -388,7 +403,7 @@ ENV BEDROCK_REGION=us-east-1
 HEALTHCHECK --interval=30s --timeout=10s \
     CMD curl -f http://localhost:8000/health || exit 1
 
-CMD ["fastmcp", "serve", "ma_research_mcp"]
+CMD ["python", "-m", "ma_research_mcp.http_server"]
 ```
 
 ### Environment Variables
@@ -420,11 +435,48 @@ QUALIFICATION_MINIMUM_SCORE=7.0
 TIER_VIP_THRESHOLD=9.0
 ```
 
+### Claude Desktop Configuration
+```json
+{
+  "mcpServers": {
+    "ma-research-assistant": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "supergateway@latest",
+        "--streamableHttp",
+        "http://localhost:8000/mcp"
+      ]
+    }
+  }
+}
+```
+
+### Docker Deployment
+```bash
+# Build the Docker image
+docker build -t ma-research-assistant .
+
+# Run the container with environment variables
+docker run -d \
+  --name ma-research-mcp \
+  -p 8000:8000 \
+  --env-file .env \
+  ma-research-assistant
+
+# Check container logs
+docker logs ma-research-mcp
+
+# Check health status
+curl http://localhost:8000/health
+```
+
 ### Health Check Endpoints
 - `/health` - Basic liveness check
 - `/ready` - Check all dependencies
 - `/metrics` - Prometheus metrics
 - `/xlsx/status` - XLSX export service status
+- `/mcp` - MCP protocol endpoint for Claude Desktop
 
 ### Monitoring & Alerting
 1. CloudWatch metrics for S3 operations
