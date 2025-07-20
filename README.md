@@ -47,6 +47,35 @@ Contains QA and testing specifications:
 
 The original combined PRD (containing both business and technical details) has been archived as `prd_original.md` for historical reference.
 
+## Feature Development
+
+When adding new features to the M&A Research Assistant:
+
+1. **Create a feature folder**: Place new feature PRDs in `prd/features/{feature-name}/`
+2. **Include documentation**: Each feature folder should contain:
+   - Feature specification document
+   - Technical design (if applicable)
+   - Integration requirements
+   - Testing criteria
+3. **Update main PRDs**: Reference the new feature in the appropriate main PRD documents
+
+### Example Feature Structure
+```
+prd/
+├── prd_main.md           # Core business requirements
+├── prd_technical.md      # Core technical specifications
+├── prd_tasks.md          # Core implementation tasks
+├── prd_validate.md       # Core validation criteria
+└── features/
+    ├── advanced-filtering/
+    │   ├── feature_spec.md
+    │   └── technical_design.md
+    └── api-integration/
+        ├── feature_spec.md
+        ├── api_contracts.md
+        └── migration_plan.md
+```
+
 ## Project Status
 
 This documentation represents the complete requirements and technical design for the M&A Research Assistant MCP Server. Implementation should follow the phased approach outlined in `prd/prd_tasks.md`.

@@ -116,7 +116,31 @@ Check the prd/ directory for detailed implementation requirements:
 - `prd/prd_main.md`: Business requirements
 - `prd/prd_technical.md`: Technical specifications
 - `prd/prd_tasks.md`: Implementation tasks
-- `prd/prd_validate.md`: QA and validation criteria The project uses:
+- `prd/prd_validate.md`: QA and validation criteria
+
+## Feature Development
+
+When adding new features to the project:
+1. Create a feature-specific folder under `prd/features/`
+2. Name the folder descriptively (e.g., `prd/features/bulk-export/`)
+3. Include feature-specific PRD documents in that folder
+4. Update the main PRD documents to reference the new feature
+
+Example structure:
+```
+prd/
+├── prd_main.md
+├── prd_technical.md
+├── prd_tasks.md
+├── prd_validate.md
+└── features/
+    ├── bulk-export/
+    │   ├── feature_spec.md
+    │   └── technical_design.md
+    └── api-v2/
+        ├── feature_spec.md
+        └── migration_plan.md
+``` The project uses:
 - Async/await patterns for I/O operations
 - Pydantic models for data validation
 - Comprehensive logging and monitoring
