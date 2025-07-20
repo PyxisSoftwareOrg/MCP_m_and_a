@@ -35,8 +35,11 @@ class S3Service:
             logger.error("AWS credentials not found")
             raise
         
-        # Test bucket access
-        self._verify_bucket_access()
+        # Test bucket access (skip in development mode)
+        if not self._is_development_mode():
+            self._verify_bucket_access()
+        else:
+            logger.warning("Development mode: Skipping S3 bucket verification")
     
     def _verify_bucket_access(self) -> None:
         """Verify bucket exists and is accessible"""
@@ -52,6 +55,15 @@ class S3Service:
             else:
                 logger.error(f"Error accessing bucket: {e}")
             raise
+    
+    def _is_development_mode(self) -> bool:
+        """Check if running in development mode"""
+        # Check for development indicators
+        return (
+            self.config.AWS_ACCESS_KEY_ID == "test" or
+            self.config.S3_BUCKET_NAME in ["test", "ma-research-bucket"] or
+            hasattr(self.config, 'DEVELOPMENT_MODE') and self.config.DEVELOPMENT_MODE
+        )
     
     def _sanitize_company_name(self, company_name: str) -> str:
         """Sanitize company name for use as S3 key"""

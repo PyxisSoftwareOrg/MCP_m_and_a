@@ -31,7 +31,11 @@
       "Bash(git reset:*)",
       "Bash(find:*)",
       "Bash(true)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(--name ma-research-mcp )",
+      "Bash(-p 8000:8000 )",
+      "Bash(--env-file .env )",
+      "Bash(ma-research-assistant)"
     ],
     "deny": []
   }
