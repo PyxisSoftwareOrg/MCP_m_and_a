@@ -113,10 +113,10 @@ Always save partial results and implement retry queues with exponential backoff.
 ## Development Commands
 
 Check the prd/ directory for detailed implementation requirements:
-- `prd/prd_main.md`: Business requirements
-- `prd/prd_technical.md`: Technical specifications
-- `prd/prd_tasks.md`: Implementation tasks
-- `prd/prd_validate.md`: QA and validation criteria
+- `prd/main.md`: Business requirements
+- `prd/technical.md`: Technical specifications
+- `prd/tasks.md`: Implementation tasks
+- `prd/validate.md`: QA and validation criteria
 
 ## Feature Development
 

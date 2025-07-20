@@ -4,9 +4,9 @@
 
 When implementing this system, reference the following technical documents:
 
-- **`prd_technical.md`**: Complete technical specifications, data models, and implementation details
-- **`prd_tasks.md`**: Structured implementation tasks organized by phase and priority
-- **`prd_validate.md`**: QA testing requirements, acceptance criteria, and validation procedures
+- **`technical.md`**: Complete technical specifications, data models, and implementation details
+- **`tasks.md`**: Structured implementation tasks organized by phase and priority
+- **`validate.md`**: QA testing requirements, acceptance criteria, and validation procedures
 
 ## Executive Summary
 
