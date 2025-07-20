@@ -30,7 +30,8 @@
       "Bash(curl:*)",
       "Bash(git reset:*)",
       "Bash(find:*)",
-      "Bash(true)"
+      "Bash(true)",
+      "Bash(git checkout:*)"
     ],
     "deny": []
   }

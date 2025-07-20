@@ -4,6 +4,7 @@ Data models for M&A Research Assistant
 
 from .analysis import *
 from .company import *
+from .discovery import *
 from .scoring import *
 
 __all__ = [
@@ -21,5 +22,14 @@ __all__ = [
     "InvestmentThesis",
     "NurturingPlan",
     "LikelihoodFactors",
-    "FilteringResult"
+    "FilteringResult",
+    # Discovery models
+    "DiscoveryRequest",
+    "DiscoveryResult",
+    "DiscoveryMetadata",
+    "WebsiteDiscoveryResult",
+    "LinkedInDiscoveryResult",
+    "CrunchbaseData",
+    "GoogleKnowledgeGraphData",
+    "ValidationConflict"
 ]

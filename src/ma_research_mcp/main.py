@@ -30,6 +30,7 @@ from .tools import (
     manage_company_lists,
     update_metadata,
 )
+from .tools.discovery_tools import discover_company_sources
 from .core.config import get_config
 from .core.logging_config import setup_logging
 
@@ -44,16 +45,24 @@ mcp = FastMCP("M&A Research Assistant")
 @mcp.tool()
 async def analyze_company_tool(
     company_name: str,
-    website_url: str,
-    linkedin_url: str = "",
+    website_url: str = None,
+    linkedin_url: str = None,
+    auto_discover: bool = True,
+    discovery_hints: Dict[str, Any] = None,
     force_refresh: bool = False,
     skip_filtering: bool = False,
     manual_override: bool = False
 ) -> Dict[str, Any]:
-    """Orchestrates complete company analysis with scoring and qualification"""
+    """Orchestrates complete company analysis with scoring and qualification. Can auto-discover URLs if not provided."""
     return await analyze_company(
-        company_name, website_url, linkedin_url, 
-        force_refresh, skip_filtering, manual_override
+        company_name=company_name,
+        website_url=website_url,
+        linkedin_url=linkedin_url,
+        auto_discover=auto_discover,
+        discovery_hints=discovery_hints,
+        force_refresh=force_refresh,
+        skip_filtering=skip_filtering,
+        manual_override=manual_override
     )
 
 @mcp.tool()
@@ -220,6 +229,27 @@ async def update_metadata_tool(
 ) -> Dict[str, Any]:
     """Manual metadata updates for companies"""
     return await update_metadata(company_name, metadata_updates)
+
+@mcp.tool()
+async def discover_company_sources_tool(
+    company_name: str,
+    industry_hint: str = None,
+    location_hint: str = None,
+    company_type_hint: str = None,
+    discovery_timeout: int = 30,
+    required_sources: list[str] = None,
+    optional_sources: list[str] = None
+) -> Dict[str, Any]:
+    """Automatically discover company website, LinkedIn profile, and other data sources"""
+    return await discover_company_sources(
+        company_name=company_name,
+        industry_hint=industry_hint,
+        location_hint=location_hint,
+        company_type_hint=company_type_hint,
+        discovery_timeout=discovery_timeout,
+        required_sources=required_sources,
+        optional_sources=optional_sources
+    )
 
 @mcp.tool()
 async def health_check() -> Dict[str, Any]:

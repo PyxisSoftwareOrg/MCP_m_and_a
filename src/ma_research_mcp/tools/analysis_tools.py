@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 from ..models import AnalysisMetadata, AnalysisResult
 from ..services import S3Service, BedrockLLMService, WebScrapingService, ApifyService
 from ..utils import ScoringEngine, LeadQualificationEngine
+from .discovery_tools import discover_company_sources
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +26,10 @@ qualification_engine = LeadQualificationEngine()
 
 async def analyze_company(
     company_name: str,
-    website_url: str,
-    linkedin_url: str = "",
+    website_url: Optional[str] = None,
+    linkedin_url: Optional[str] = None,
+    auto_discover: bool = True,
+    discovery_hints: Optional[Dict[str, Any]] = None,
     force_refresh: bool = False,
     skip_filtering: bool = False,
     manual_override: bool = False
@@ -59,9 +62,38 @@ async def analyze_company(
                     "from_cache": True
                 }
         
-        # Step 1: Scrape website
-        logger.info(f"Scraping website: {website_url}")
-        website_data = await scrape_website(website_url, max_pages=5)
+        # Step 1: Auto-discovery if enabled and URLs not provided
+        discovery_data = None
+        if auto_discover and (not website_url or not linkedin_url):
+            logger.info(f"Starting auto-discovery for {company_name}")
+            
+            discovery_result = await discover_company_sources(
+                company_name=company_name,
+                industry_hint=discovery_hints.get("industry") if discovery_hints else None,
+                location_hint=discovery_hints.get("location") if discovery_hints else None,
+                company_type_hint=discovery_hints.get("type") if discovery_hints else None
+            )
+            
+            if discovery_result["success"]:
+                # Use discovered URLs if not provided
+                if not website_url and discovery_result["website_url"]:
+                    website_url = discovery_result["website_url"]
+                    logger.info(f"Discovered website: {website_url}")
+                    
+                if not linkedin_url and discovery_result["linkedin_url"]:
+                    linkedin_url = discovery_result["linkedin_url"]
+                    logger.info(f"Discovered LinkedIn: {linkedin_url}")
+                
+                # Store discovery data for enrichment
+                discovery_data = discovery_result
+            else:
+                logger.warning(f"Discovery failed: {discovery_result.get('error', 'Unknown error')}")
+        
+        # Step 2: Scrape website
+        website_data = {"success": False, "error": "No website URL available"}
+        if website_url:
+            logger.info(f"Scraping website: {website_url}")
+            website_data = await scrape_website(website_url, max_pages=5)
         
         if not website_data["success"]:
             logger.warning(f"Website scraping failed: {website_data.get('error', 'Unknown error')}")
