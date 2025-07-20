@@ -9,37 +9,41 @@ This is an M&A Research Assistant MCP Server for evaluating software companies a
 ## Architecture
 
 - **Language**: Python 3.11+
-- **Framework**: FastMCP 2.9+
+- **Framework**: FastMCP 2.10.5 with HTTP transport
 - **Storage**: AWS S3 with versioning
 - **Web Scraping**: Beautiful Soup 4, Requests
 - **LinkedIn Data**: Apify API
-- **LLM**: OpenAI API (gpt-4o-mini)
-- **Data Processing**: Pandas, Pydantic models
+- **LLM**: AWS Bedrock (Claude 3.5 Sonnet)
+- **Data Processing**: Pandas, Pydantic v2 models
+- **Containerization**: Docker with production configuration
 
 ## Key Dependencies
 
 ```python
-fastmcp>=2.9.0
+fastmcp>=2.10.5
+mcp>=1.12.0
 boto3>=1.28.0
 beautifulsoup4>=4.12.0
 requests>=2.31.0
-openai>=1.0.0
+botocore>=1.31.0
 pandas>=2.0.0
 pydantic>=2.0.0
 aiohttp>=3.9.0
 tenacity>=8.2.0
+uvicorn>=0.30.0
+fastapi>=0.110.0
 ```
 
 ## Core Components
 
 1. **Web Scraping Engine**: Scrapes company websites recursively up to 3 priority subpages
 2. **LinkedIn Integration**: Uses Apify API for company metadata and growth metrics
-3. **LLM Analysis Engine**: Structured scoring with OpenAI API
+3. **LLM Analysis Engine**: Structured scoring with AWS Bedrock (Claude 3.5 Sonnet)
 4. **S3 Storage Manager**: Handles versioned analysis storage with lifecycle policies
 
 ## MCP Tools
 
-The server implements 10 MCP tools:
+The server implements 19 MCP tools:
 
 - `analyze_company`: Full company analysis orchestration
 - `scrape_website`: Intelligent website scraping
@@ -84,7 +88,7 @@ s3://ma-research-bucket/
 Required environment variables:
 - `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`
 - `S3_BUCKET_NAME`
-- `OPENAI_API_KEY`
+- `BEDROCK_REGION`, `BEDROCK_PRIMARY_MODEL`, `BEDROCK_FALLBACK_MODEL`
 - `APIFY_API_TOKEN`
 - `MCP_SERVER_NAME`, `MCP_SERVER_VERSION`
 
@@ -108,7 +112,11 @@ Always save partial results and implement retry queues with exponential backoff.
 
 ## Development Commands
 
-Check the prd.md file for detailed implementation requirements. The project uses:
+Check the prd/ directory for detailed implementation requirements:
+- `prd/prd_main.md`: Business requirements
+- `prd/prd_technical.md`: Technical specifications
+- `prd/prd_tasks.md`: Implementation tasks
+- `prd/prd_validate.md`: QA and validation criteria The project uses:
 - Async/await patterns for I/O operations
 - Pydantic models for data validation
 - Comprehensive logging and monitoring
