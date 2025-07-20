@@ -4,9 +4,9 @@
 
 When implementing this system, reference the following technical documents:
 
-- **`technical.md`**: Complete technical specifications, data models, and implementation details
-- **`tasks.md`**: Structured implementation tasks organized by phase and priority
-- **`validate.md`**: QA testing requirements, acceptance criteria, and validation procedures
+- **`technical_design.md`**: Complete technical specifications, data models, and implementation details
+- **`implementation_tasks.md`**: Structured implementation tasks organized by phase and priority
+- **`validation_criteria.md`**: QA testing requirements, acceptance criteria, and validation procedures
 
 ## Executive Summary
 

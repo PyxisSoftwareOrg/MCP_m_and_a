@@ -4,7 +4,7 @@
 
 This project is organized into three key documents:
 
-### 1. `prd/main.md` - Product Requirements Document
+### 1. `prd/main_spec.md` - Product Requirements Document
 Contains business requirements only:
 - Business objectives and target users
 - Core features and functionality
@@ -12,7 +12,7 @@ Contains business requirements only:
 - Success metrics and future enhancements
 - NO technical implementation details
 
-### 2. `prd/technical.md` - Technical Specifications
+### 2. `prd/technical_design.md` - Technical Specifications
 Contains all technical details:
 - System architecture and technology stack
 - MCP tools implementation details
@@ -20,7 +20,7 @@ Contains all technical details:
 - API integrations and configurations
 - Performance, security, and deployment specifications
 
-### 3. `prd/tasks.md` - Implementation Tasks
+### 3. `prd/implementation_tasks.md` - Implementation Tasks
 Contains development tasks organized by phase:
 - Project setup and infrastructure
 - Core feature implementation
@@ -28,7 +28,7 @@ Contains development tasks organized by phase:
 - Dependencies and success criteria
 - Risk mitigation strategies
 
-### 4. `prd/validate.md` - Validation Criteria
+### 4. `prd/validation_criteria.md` - Validation Criteria
 Contains QA and testing specifications:
 - 10+ automated QA test specifications
 - Manual testing procedures
@@ -38,10 +38,10 @@ Contains QA and testing specifications:
 
 ## Quick Start
 
-1. **For Business Stakeholders**: Read `prd/main.md` to understand what the system does
-2. **For Technical Team**: Review `prd/technical.md` for implementation details
-3. **For Developers**: Use `prd/tasks.md` as your implementation checklist
-4. **For QA Team**: Use `prd/validate.md` for testing specifications and acceptance criteria
+1. **For Business Stakeholders**: Read `prd/main_spec.md` to understand what the system does
+2. **For Technical Team**: Review `prd/technical_design.md` for implementation details
+3. **For Developers**: Use `prd/implementation_tasks.md` as your implementation checklist
+4. **For QA Team**: Use `prd/validation_criteria.md` for testing specifications and acceptance criteria
 
 ## Original Documentation
 
@@ -78,4 +78,4 @@ prd/
 
 ## Project Status
 
-This documentation represents the complete requirements and technical design for the M&A Research Assistant MCP Server. Implementation should follow the phased approach outlined in `prd/tasks.md`.
+This documentation represents the complete requirements and technical design for the M&A Research Assistant MCP Server. Implementation should follow the phased approach outlined in `prd/implementation_tasks.md`.
