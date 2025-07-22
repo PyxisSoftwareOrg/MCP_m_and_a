@@ -21,7 +21,7 @@ class Config(BaseSettings):
     
     # AWS Bedrock Configuration
     BEDROCK_REGION: str = Field("us-east-1")
-    BEDROCK_PRIMARY_MODEL: str = Field("anthropic.claude-3-5-sonnet-20241022-v2:0")
+    BEDROCK_PRIMARY_MODEL: str = Field("us.anthropic.claude-3-7-sonnet-20250219-v1:0")
     BEDROCK_FALLBACK_MODEL: str = Field("amazon.nova-pro-v1:0")
     
     # API Keys

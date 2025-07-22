@@ -48,6 +48,57 @@ class LinkedInDiscoveryResult(BaseModel):
     verified_badge: bool = False
 
 
+class GoogleSearchResult(BaseModel):
+    """Result from Google search"""
+    title: str
+    url: str
+    snippet: str
+    domain: str
+    query: str
+    relevance_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    
+
+class SearchQuery(BaseModel):
+    """Search query configuration"""
+    query: str
+    max_results: int = 10
+    search_type: str = "general"  # general, filings, news, reviews
+    
+
+class PublicFilingResult(BaseModel):
+    """Result from public filing search"""
+    filing_type: str  # "SEC", "state", "other"
+    filing_url: str
+    filing_title: str
+    filing_date: Optional[str] = None
+    jurisdiction: Optional[str] = None
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+
+
+class NewsResult(BaseModel):
+    """Result from news/media coverage search"""
+    title: str
+    url: str
+    snippet: str
+    source: str
+    publish_date: Optional[str] = None
+    sentiment: Optional[str] = None  # "positive", "negative", "neutral"
+    relevance_score: float = Field(default=0.0, ge=0.0, le=1.0)
+
+
+class LocationInfo(BaseModel):
+    """Company location information"""
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    country: Optional[str] = None
+    postal_code: Optional[str] = None
+    phone: Optional[str] = None
+    coordinates: Optional[Dict[str, float]] = None  # lat, lng
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    source: str = "extracted"  # "extracted", "structured", "manual"
+
+
 class CrunchbaseData(BaseModel):
     """Crunchbase company information"""
     uuid: str

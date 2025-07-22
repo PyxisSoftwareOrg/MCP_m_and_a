@@ -109,12 +109,11 @@ class LeadQualificationEngine:
                 company_age_years=size_maturity_result.get("company_age_years")
             )
             
-            # Step 4: Detailed qualification (Q1-Q5) if passed filtering
-            qualification_result = None
-            if filtering_result.overall_filter_result:
-                qualification_result = await self._perform_detailed_qualification(company_data)
-            else:
-                # Create basic disqualified result
+            # Step 4: Detailed qualification (Q1-Q5) - always perform regardless of filtering
+            qualification_result = await self._perform_detailed_qualification(company_data)
+            
+            # Override qualification based on filtering results
+            if not filtering_result.overall_filter_result:
                 disqualification_reasons = []
                 if not geographic_result["qualified"]:
                     disqualification_reasons.append("Geographic restriction")
@@ -123,20 +122,12 @@ class LeadQualificationEngine:
                 if not size_maturity_result["qualified"]:
                     disqualification_reasons.append("Size/maturity threshold not met")
                 
-                qualification_result = QualificationResult(
-                    is_qualified=False,
-                    qualification_score=0.0,
-                    disqualification_reasons=disqualification_reasons,
-                    geographic_qualification=geographic_result["qualified"],
-                    business_model_qualification=business_model_result["qualified"],
-                    size_maturity_qualification=size_maturity_result["qualified"],
-                    q1_horizontal_vs_vertical="not_assessed",
-                    q2_point_vs_suite="not_assessed",
-                    q3_mission_critical="not_assessed",
-                    q4_opm_vs_private="not_assessed",
-                    q5_arpu_level="not_assessed",
-                    qualification_confidence=0.0
-                )
+                # Update qualification result with filtering issues but keep Q1-Q5 assessments
+                qualification_result.is_qualified = False
+                qualification_result.disqualification_reasons = disqualification_reasons
+                qualification_result.geographic_qualification = geographic_result["qualified"]
+                qualification_result.business_model_qualification = business_model_result["qualified"]
+                qualification_result.size_maturity_qualification = size_maturity_result["qualified"]
             
             return {
                 "success": True,
@@ -161,6 +152,7 @@ class LeadQualificationEngine:
         try:
             # Extract location information
             locations = []
+            found_fields = []
             
             # Check various location fields
             location_fields = [
@@ -171,6 +163,7 @@ class LeadQualificationEngine:
             for field in location_fields:
                 if field in company_data and company_data[field]:
                     locations.append(str(company_data[field]).lower())
+                    found_fields.append(field)
             
             # Also check website domain for country indicators
             website = company_data.get("website_url", "")
@@ -178,12 +171,21 @@ class LeadQualificationEngine:
                 domain = website.lower()
                 if ".uk" in domain or ".co.uk" in domain:
                     locations.append("uk")
+                    found_fields.append("domain(.uk)")
                 elif ".ca" in domain:
-                    locations.append("canada")
+                    locations.append("canada") 
+                    found_fields.append("domain(.ca)")
                 elif ".mx" in domain:
                     locations.append("mexico")
+                    found_fields.append("domain(.mx)")
+                else:
+                    # Default to US for .com domains
+                    locations.append("us")
+                    found_fields.append("domain(.com->us)")
             
             location_text = " ".join(locations)
+            
+            logger.debug(f"Geographic qualification - Found fields: {found_fields}, Location text: '{location_text}'")
             
             # Check for excluded regions first
             for excluded in self.geographic_rules["excluded_regions"]:
@@ -596,7 +598,7 @@ class LeadQualificationEngine:
                 q1_horizontal_vs_vertical=q1_result["assessment"],
                 q2_point_vs_suite=q2_result["assessment"],
                 q3_mission_critical=q3_result["assessment"],
-                q4_omp_vs_private=q4_result["assessment"],
+                q4_opm_vs_private=q4_result["assessment"],
                 q5_arpu_level=q5_result["assessment"],
                 qualification_confidence=overall_confidence
             )

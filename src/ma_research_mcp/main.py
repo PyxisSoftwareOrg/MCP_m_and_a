@@ -51,9 +51,10 @@ async def analyze_company_tool(
     discovery_hints: Dict[str, Any] = None,
     force_refresh: bool = False,
     skip_filtering: bool = False,
-    manual_override: bool = False
+    manual_override: bool = False,
+    quick_mode: bool = True
 ) -> Dict[str, Any]:
-    """Orchestrates complete company analysis with scoring and qualification. Can auto-discover URLs if not provided."""
+    """Orchestrates complete company analysis with scoring and qualification. Can auto-discover URLs if not provided. Use quick_mode=True for faster responses."""
     return await analyze_company(
         company_name=company_name,
         website_url=website_url,
@@ -62,7 +63,11 @@ async def analyze_company_tool(
         discovery_hints=discovery_hints,
         force_refresh=force_refresh,
         skip_filtering=skip_filtering,
-        manual_override=manual_override
+        manual_override=manual_override,
+        research_depth="basic" if quick_mode else "standard",
+        include_public_filings=not quick_mode,
+        include_news_analysis=not quick_mode,
+        include_location_extraction=not quick_mode
     )
 
 @mcp.tool()
@@ -106,6 +111,36 @@ async def get_company_history_tool(
 ) -> Dict[str, Any]:
     """Retrieves historical analyses for a company"""
     return await get_company_history(company_name, limit)
+
+@mcp.tool()
+async def get_latest_analysis_tool(
+    company_name: str
+) -> Dict[str, Any]:
+    """Retrieves the latest analysis for a company"""
+    from .services.s3_service import S3Service
+    
+    try:
+        s3_service = S3Service()
+        latest_analysis = await s3_service.get_analysis_result(company_name)
+        
+        if latest_analysis:
+            return {
+                "success": True,
+                "company_name": company_name,
+                "analysis": latest_analysis.dict()
+            }
+        else:
+            return {
+                "success": False,
+                "error": f"No analysis found for company: {company_name}",
+                "company_name": company_name
+            }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Failed to retrieve analysis: {str(e)}",
+            "company_name": company_name
+        }
 
 @mcp.tool()
 async def compare_analyses_tool(

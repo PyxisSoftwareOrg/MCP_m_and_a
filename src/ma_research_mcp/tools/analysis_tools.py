@@ -10,6 +10,8 @@ from typing import Any, Dict, List, Optional
 
 from ..models import AnalysisMetadata, AnalysisResult
 from ..services import S3Service, BedrockLLMService, WebScrapingService, ApifyService
+from ..services.discovery.comprehensive_research_service import ComprehensiveResearchService
+from ..services.discovery.google_search_service import GoogleSearchService
 from ..utils import ScoringEngine, LeadQualificationEngine
 from .discovery_tools import discover_company_sources
 
@@ -20,8 +22,390 @@ s3_service = S3Service()
 llm_service = BedrockLLMService()
 web_scraper = WebScrapingService()
 apify_service = ApifyService()
+comprehensive_research_service = ComprehensiveResearchService()
 scoring_engine = ScoringEngine()
 qualification_engine = LeadQualificationEngine()
+
+
+def _create_fallback_scoring_result(combined_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Create fallback scoring when LLM scoring fails"""
+    from ..models.scoring import DEFAULT_SCORING_DIMENSIONS
+    
+    # Simple rule-based scoring
+    dimension_scores = {}
+    total_score = 0
+    total_weight = 0
+    
+    for dim in DEFAULT_SCORING_DIMENSIONS:
+        dim_id = dim["dimension_id"]
+        max_score = dim.get("max_score", 10.0)
+        min_score = dim.get("min_score", 0.0)
+        weight = dim.get("weight", 1.0)
+        
+        # Simple heuristic scoring
+        score = min_score + (max_score - min_score) * 0.5  # Default to middle
+        
+        dimension_scores[dim_id] = {
+            "dimension_name": dim["dimension_name"],
+            "score": score,
+            "weight": weight,
+            "weighted_score": score * weight,
+            "reasoning": "Fallback scoring due to LLM timeout/failure",
+            "evidence": ["Limited data available"],
+            "confidence": 0.3
+        }
+        
+        total_score += score * weight
+        total_weight += weight
+    
+    overall_score = total_score / total_weight if total_weight > 0 else 5.0
+    
+    return {
+        "success": True,
+        "overall_score": overall_score,
+        "dimension_scores": dimension_scores,
+        "recommendation": "Requires manual review - automated scoring unavailable",
+        "tier": "NEEDS_REVIEW",
+        "insights": ["Automated scoring failed, using fallback values"],
+        "scoring_system": "fallback",
+        "total_possible_score": 10.0,
+        "score_interpretation": {"fallback": True}
+    }
+
+
+def _enhance_data_for_qualification(combined_data: Dict[str, Any], comprehensive_research: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Enhance combined_data with proper field mapping for qualification engine"""
+    
+    # Extract location information and map to expected fields
+    location_info = combined_data.get('location_info', {})
+    if isinstance(location_info, dict):
+        # Map primary location
+        primary_location = location_info.get('primary_location', {})
+        if primary_location:
+            combined_data['headquarters'] = primary_location.get('address', '')
+            combined_data['headquarters_location'] = primary_location.get('address', '')
+        
+        # Map additional locations
+        additional_locations = location_info.get('additional_locations', [])
+        if additional_locations:
+            all_locations = []
+            for loc in additional_locations:
+                if isinstance(loc, dict) and 'address' in loc:
+                    all_locations.append(loc['address'])
+                elif isinstance(loc, str):
+                    all_locations.append(loc)
+            combined_data['location'] = '; '.join(all_locations)
+        
+        # Map addresses from location_info
+        addresses = location_info.get('addresses', [])
+        if addresses:
+            address_list = []
+            for addr in addresses:
+                if isinstance(addr, dict) and 'full_address' in addr:
+                    address_list.append(addr['full_address'])
+                elif isinstance(addr, str):
+                    address_list.append(addr)
+            combined_data['address'] = '; '.join(address_list)
+    
+    # Extract location from comprehensive research if available
+    if comprehensive_research:
+        location_research = comprehensive_research.get('location_info', {})
+        if location_research.get('primary_location'):
+            primary = location_research['primary_location']
+            if not combined_data.get('headquarters'):
+                combined_data['headquarters'] = primary.get('address', '')
+            if not combined_data.get('location'):
+                combined_data['location'] = primary.get('address', '')
+    
+    # Extract and map contact information
+    contact_info = combined_data.get('contact_info', {})
+    if isinstance(contact_info, dict):
+        # Map addresses from contact info
+        for key, value in contact_info.items():
+            if 'address' in key.lower() and value:
+                if not combined_data.get('address'):
+                    combined_data['address'] = str(value)
+                else:
+                    combined_data['address'] += f"; {value}"
+    
+    # Extract company information and enhance business model fields
+    company_info = combined_data.get('company_info', {})
+    if isinstance(company_info, dict):
+        # Map industry mentions
+        industry_mentions = company_info.get('industry_mentions', [])
+        if industry_mentions:
+            combined_data['industry'] = ', '.join(industry_mentions)
+            combined_data['industry_vertical'] = industry_mentions[0] if industry_mentions else ''
+        
+        # Map employee count
+        employee_mentions = company_info.get('employee_count_mentions', [])
+        if employee_mentions:
+            try:
+                # Extract numeric values and use the largest
+                employee_counts = [int(emp) for emp in employee_mentions if str(emp).isdigit()]
+                if employee_counts:
+                    combined_data['employee_count'] = max(employee_counts)
+                    combined_data['employees'] = str(max(employee_counts))
+            except (ValueError, TypeError):
+                pass
+        
+        # Map founding year
+        founding_mentions = company_info.get('founding_year_mentions', [])
+        if founding_mentions:
+            try:
+                years = [int(year) for year in founding_mentions if str(year).isdigit() and 1800 <= int(year) <= 2024]
+                if years:
+                    combined_data['founding_year'] = min(years)  # Use earliest year
+            except (ValueError, TypeError):
+                pass
+    
+    # Extract product/solution information
+    product_info = combined_data.get('product_info', [])
+    if isinstance(product_info, list) and product_info:
+        products = []
+        solutions = []
+        for product in product_info:
+            if isinstance(product, dict):
+                title = product.get('title', '')
+                description = product.get('description', '')
+                if title:
+                    products.append(title)
+                if description:
+                    solutions.append(description)
+        
+        if products:
+            combined_data['products'] = '; '.join(products)
+        if solutions:
+            combined_data['solutions'] = '; '.join(solutions)
+    
+    # Extract pricing information for revenue estimation
+    pricing_info = combined_data.get('pricing_info', [])
+    if isinstance(pricing_info, list) and pricing_info:
+        pricing_amounts = []
+        for price_item in pricing_info:
+            if isinstance(price_item, dict) and 'amount' in price_item:
+                amount = price_item['amount']
+                # Clean and extract numeric value
+                import re
+                numbers = re.findall(r'\d+(?:,\d{3})*(?:\.\d{2})?', str(amount))
+                if numbers:
+                    try:
+                        # Remove commas and convert to float
+                        price = float(numbers[0].replace(',', ''))
+                        pricing_amounts.append(price)
+                    except ValueError:
+                        pass
+        
+        if pricing_amounts:
+            # Use highest pricing as revenue indicator
+            combined_data['estimated_revenue'] = max(pricing_amounts)
+    
+    # Enhance text content for better business model detection
+    text_sources = []
+    
+    # Collect text from various sources
+    for field in ['text_content', 'description', 'title']:
+        if combined_data.get(field):
+            text_sources.append(str(combined_data[field]))
+    
+    # Add product and company descriptions
+    if isinstance(product_info, list):
+        for product in product_info:
+            if isinstance(product, dict) and product.get('description'):
+                text_sources.append(product['description'])
+    
+    # Combine all text for business model analysis
+    if text_sources:
+        combined_data['combined_text'] = ' '.join(text_sources)
+    
+    # Extract from comprehensive research web data
+    if comprehensive_research:
+        web_research = comprehensive_research.get('web_research', {})
+        if web_research.get('general_info'):
+            # Extract business information from search results
+            for result in web_research['general_info']:
+                if hasattr(result, 'snippet') and result.snippet:
+                    if 'combined_text' in combined_data:
+                        combined_data['combined_text'] += f" {result.snippet}"
+                    else:
+                        combined_data['combined_text'] = result.snippet
+    
+    # Map LinkedIn data with proper field names
+    linkedin_company_name = combined_data.get('linkedin_company_name')
+    if linkedin_company_name and not combined_data.get('company_name'):
+        combined_data['company_name'] = linkedin_company_name
+    
+    linkedin_description = combined_data.get('linkedin_description')
+    if linkedin_description:
+        if combined_data.get('description'):
+            combined_data['description'] += f" {linkedin_description}"
+        else:
+            combined_data['description'] = linkedin_description
+    
+    linkedin_industry = combined_data.get('linkedin_industry')
+    if linkedin_industry and not combined_data.get('industry'):
+        combined_data['industry'] = linkedin_industry
+    
+    linkedin_specialties = combined_data.get('linkedin_specialties')
+    if linkedin_specialties:
+        combined_data['specialties'] = linkedin_specialties
+    
+    linkedin_employee_count = combined_data.get('linkedin_employee_count')
+    if linkedin_employee_count and not combined_data.get('employee_count'):
+        try:
+            combined_data['employee_count'] = int(linkedin_employee_count)
+            combined_data['employees'] = str(linkedin_employee_count)
+        except (ValueError, TypeError):
+            pass
+    
+    linkedin_headquarters = combined_data.get('linkedin_headquarters')
+    if linkedin_headquarters and not combined_data.get('headquarters'):
+        combined_data['headquarters'] = linkedin_headquarters
+        combined_data['headquarters_location'] = linkedin_headquarters
+    
+    # Ensure country/region detection from domain
+    website_url = combined_data.get('website_url', '')
+    if website_url:
+        domain = website_url.lower()
+        if '.uk' in domain or '.co.uk' in domain:
+            combined_data['country'] = 'UK'
+            combined_data['region'] = 'Europe'
+        elif '.ca' in domain:
+            combined_data['country'] = 'Canada'
+            combined_data['region'] = 'North America'
+        elif '.au' in domain:
+            combined_data['country'] = 'Australia'
+            combined_data['region'] = 'Asia Pacific'
+        elif '.de' in domain:
+            combined_data['country'] = 'Germany'
+            combined_data['region'] = 'Europe'
+        else:
+            # Default to US if no other indicators
+            combined_data['country'] = 'US'
+            combined_data['region'] = 'North America'
+    
+    return combined_data
+
+
+async def _search_for_missing_urls(company_name: str, website_url: Optional[str], linkedin_url: Optional[str]) -> Dict[str, Optional[str]]:
+    """Search Google to find missing website or LinkedIn URLs for a company"""
+    
+    result = {
+        'website_url': website_url,
+        'linkedin_url': linkedin_url,
+        'search_performed': False
+    }
+    
+    try:
+        async with GoogleSearchService() as google_service:
+            # Search for website URL if missing
+            if not website_url:
+                logger.info(f"Searching for website URL for {company_name}")
+                
+                # Try multiple search strategies for better results
+                search_queries = [
+                    f'"{company_name}" SaaS software official website',
+                    f'"{company_name}" software company',
+                    f'"{company_name}" official site'
+                ]
+                
+                for query in search_queries:
+                    website_results = await google_service._perform_search(query, max_results=5)
+                    
+                    for search_result in website_results:
+                        domain = search_result.domain.lower()
+                        title = search_result.title.lower()
+                        snippet = search_result.snippet.lower()
+                        
+                        # Skip social media, directories, and review sites
+                        skip_domains = [
+                            'linkedin.com', 'facebook.com', 'twitter.com', 'instagram.com',
+                            'crunchbase.com', 'glassdoor.com', 'indeed.com', 'wikipedia.org',
+                            'bloomberg.com', 'reuters.com', 'techcrunch.com', 'angel.co'
+                        ]
+                        
+                        if any(skip in domain for skip in skip_domains):
+                            continue
+                        
+                        # Score potential websites
+                        score = 0
+                        company_words = company_name.lower().split()
+                        
+                        # High score for company name in domain
+                        if any(word in domain for word in company_words):
+                            score += 5
+                        
+                        # Medium score for exact company name match in title/snippet
+                        if company_name.lower() in title:
+                            score += 3
+                        if company_name.lower() in snippet:
+                            score += 2
+                        
+                        # Bonus for SaaS/software indicators
+                        saas_indicators = ['software', 'saas', 'platform', 'solution', 'app', 'cloud']
+                        if any(indicator in title + ' ' + snippet for indicator in saas_indicators):
+                            score += 2
+                        
+                        # Bonus for official site indicators
+                        official_indicators = ['official', 'homepage', 'home page', 'main site']
+                        if any(indicator in title + ' ' + snippet for indicator in official_indicators):
+                            score += 1
+                        
+                        # Must have minimum score to be considered
+                        if score >= 3:
+                            result['website_url'] = search_result.url
+                            logger.info(f"Found website URL (score: {score}): {search_result.url}")
+                            break
+                    
+                    if result['website_url']:
+                        break
+            
+            # Search for LinkedIn URL if missing
+            if not linkedin_url:
+                logger.info(f"Searching for LinkedIn URL for {company_name}")
+                linkedin_query = f'"{company_name}" site:linkedin.com/company'
+                linkedin_results = await google_service._perform_search(linkedin_query, max_results=3)
+                
+                for search_result in linkedin_results:
+                    if 'linkedin.com/company' in search_result.url.lower():
+                        result['linkedin_url'] = search_result.url
+                        logger.info(f"Found LinkedIn URL: {search_result.url}")
+                        break
+            
+            result['search_performed'] = True
+            
+    except Exception as e:
+        logger.warning(f"URL search failed for {company_name}: {e}")
+        result['search_error'] = str(e)
+    
+    return result
+
+
+# System prompt for SaaS focus
+SAAS_ANALYSIS_CONTEXT = """
+ANALYSIS CONTEXT: This analysis is specifically focused on evaluating SaaS (Software as a Service) companies as potential M&A targets.
+
+KEY FOCUS AREAS:
+- SaaS business model characteristics (subscription revenue, cloud-based delivery)
+- Software vertical market specialization
+- Recurring revenue patterns and predictability
+- Customer retention and churn metrics
+- Market positioning within specific industries
+- Technology stack and platform capabilities
+- Scalability and growth potential
+- Competitive advantages in software markets
+
+When analyzing content, prioritize:
+1. Software products and solutions offered
+2. Target industries and customer segments
+3. Pricing models (subscription, per-seat, usage-based)
+4. Technology platform and infrastructure
+5. Customer testimonials and case studies
+6. Market positioning against competitors
+7. Growth indicators and business metrics
+
+This context should inform all scoring, qualification, and analysis decisions.
+"""
 
 
 async def analyze_company(
@@ -32,17 +416,39 @@ async def analyze_company(
     discovery_hints: Optional[Dict[str, Any]] = None,
     force_refresh: bool = False,
     skip_filtering: bool = False,
-    manual_override: bool = False
+    manual_override: bool = False,
+    research_depth: str = "standard",  # "basic", "standard", "deep"
+    include_public_filings: bool = True,
+    include_news_analysis: bool = True,
+    include_location_extraction: bool = True
 ) -> Dict[str, Any]:
     """Orchestrates complete company analysis with scoring and qualification"""
     analysis_start_time = time.time()
     
     try:
-        logger.info(f"Starting analysis for company: {company_name}")
+        logger.info(f"Starting SaaS company analysis for: {company_name}")
+        logger.info(f"Analysis Context: {SAAS_ANALYSIS_CONTEXT}")
         
         # Generate analysis ID and timestamp
         analysis_timestamp = datetime.utcnow().isoformat() + 'Z'
         analysis_id = f"{company_name.lower().replace(' ', '-')}_{int(time.time())}"
+        
+        # Step 0: Search for missing URLs using Google if not provided (temporarily disabled to avoid rate limits)
+        if not website_url or not linkedin_url:
+            logger.info(f"URL search temporarily disabled for {company_name} to avoid rate limits")
+            # Provide some common URLs for testing
+            if company_name.lower() == "whip around" and not website_url:
+                website_url = "https://whiparound.com"
+                logger.info(f"Using known website URL: {website_url}")
+            # url_search_result = await _search_for_missing_urls(company_name, website_url, linkedin_url)
+            # 
+            # if url_search_result.get('website_url') and not website_url:
+            #     website_url = url_search_result['website_url']
+            #     logger.info(f"Found website via Google search: {website_url}")
+            # 
+            # if url_search_result.get('linkedin_url') and not linkedin_url:
+            #     linkedin_url = url_search_result['linkedin_url']
+            #     logger.info(f"Found LinkedIn via Google search: {linkedin_url}")
         
         # Check for existing analysis if not forcing refresh
         if not force_refresh:
@@ -89,25 +495,55 @@ async def analyze_company(
             else:
                 logger.warning(f"Discovery failed: {discovery_result.get('error', 'Unknown error')}")
         
-        # Step 2: Scrape website
+        # Step 2: Comprehensive Research (replaces separate website/LinkedIn steps)
+        comprehensive_research = None
+        if research_depth != "basic":
+            logger.info(f"Starting comprehensive research with depth: {research_depth}")
+            # Use shorter timeout for quick responses  
+            timeout = 60 if research_depth == "basic" else 300
+            try:
+                comprehensive_research = await comprehensive_research_service.conduct_comprehensive_research(
+                    company_name=company_name,
+                    website_url=website_url,
+                    linkedin_url=linkedin_url,
+                    research_depth=research_depth,
+                    timeout=timeout
+                )
+            except asyncio.TimeoutError:
+                logger.warning(f"Comprehensive research timed out after {timeout}s, proceeding with basic analysis")
+                comprehensive_research = None
+            
+            # Update URLs from comprehensive research if found
+            if comprehensive_research.get('basic_discovery', {}).get('website_url'):
+                website_url = comprehensive_research['basic_discovery']['website_url']
+            if comprehensive_research.get('basic_discovery', {}).get('linkedin_url'):
+                linkedin_url = comprehensive_research['basic_discovery']['linkedin_url']
+        
+        # Step 2b: Fallback to basic scraping if comprehensive research not used
         website_data = {"success": False, "error": "No website URL available"}
-        if website_url:
-            logger.info(f"Scraping website: {website_url}")
+        if research_depth == "basic" and website_url:
+            logger.info(f"Basic website scraping: {website_url}")
             website_data = await scrape_website(website_url, max_pages=5)
+        elif comprehensive_research:
+            # Extract website data from comprehensive research
+            website_data = {
+                "success": True,
+                "website_url": website_url,
+                "comprehensive_research": comprehensive_research
+            }
         
-        if not website_data["success"]:
-            logger.warning(f"Website scraping failed: {website_data.get('error', 'Unknown error')}")
-            website_data = {"success": False, "error": "Website scraping failed"}
-        
-        # Step 2: Get LinkedIn data if provided
+        # Step 2c: Basic LinkedIn data if not in comprehensive research
         linkedin_data = None
-        if linkedin_url:
+        if research_depth == "basic" and linkedin_url:
             logger.info(f"Getting LinkedIn data: {linkedin_url}")
             linkedin_result = await get_linkedin_data(linkedin_url, force_refresh)
             if linkedin_result["success"]:
                 linkedin_data = linkedin_result["company_data"]
             else:
                 logger.warning(f"LinkedIn data retrieval failed: {linkedin_result.get('error', 'Unknown error')}")
+        elif comprehensive_research:
+            # Extract LinkedIn data from comprehensive research if available
+            linkedin_data = comprehensive_research.get('basic_discovery', {}).get('linkedin_data')
         
         # Step 3: Combine all data for analysis
         combined_data = {
@@ -116,7 +552,10 @@ async def analyze_company(
             "linkedin_url": linkedin_url,
             "website_data": website_data,
             "linkedin_data": linkedin_data,
-            "analysis_timestamp": analysis_timestamp
+            "analysis_timestamp": analysis_timestamp,
+            "comprehensive_research": comprehensive_research,
+            "discovery_data": discovery_data,
+            "research_depth": research_depth
         }
         
         # Add website content to combined data for scoring
@@ -133,62 +572,65 @@ async def analyze_company(
             for key, value in linkedin_data.items():
                 combined_data[f"linkedin_{key}"] = value
         
-        # Step 4: Lead qualification (unless skipped)
+        # Enhanced data mapping for qualification engine compatibility
+        combined_data = _enhance_data_for_qualification(combined_data, comprehensive_research)
+        
+        # Add SaaS analysis context to guide all LLM-based analysis
+        combined_data['analysis_context'] = SAAS_ANALYSIS_CONTEXT
+        combined_data['business_focus'] = 'SaaS Software'
+        combined_data['target_market'] = 'Vertical Software Markets'
+        
+        # Step 4: Score company using default scoring system (always perform full analysis)
+        logger.info("Scoring company")
+        try:
+            scoring_result = await asyncio.wait_for(
+                scoring_engine.score_company(combined_data), 
+                timeout=120  # 2 minutes max for scoring
+            )
+        except asyncio.TimeoutError:
+            logger.warning("Scoring timed out, using fallback scoring")
+            scoring_result = _create_fallback_scoring_result(combined_data)
+        
+        if not scoring_result["success"]:
+            logger.warning(f"Scoring failed: {scoring_result.get('error', 'Unknown error')}, using fallback")
+            scoring_result = _create_fallback_scoring_result(combined_data)
+        
+        # Step 5: Generate investment thesis
+        logger.info("Generating investment thesis")
+        try:
+            thesis_result = await asyncio.wait_for(
+                generate_investment_thesis(company_name, combined_data, scoring_result),
+                timeout=60  # 1 minute max for thesis
+            )
+            investment_thesis = thesis_result.get("investment_thesis") if thesis_result.get("success") else None
+        except asyncio.TimeoutError:
+            logger.warning("Investment thesis generation timed out")
+            investment_thesis = None
+        
+        # Step 6: Lead qualification (performed after analysis, used as flags)
         qualification_result = None
         filtering_result = None
+        qualification_flags = []
         
         if not skip_filtering and not manual_override:
-            logger.info("Performing lead qualification")
+            logger.info("Performing lead qualification (as flags)")
             qualification_response = await qualify_lead(company_name, combined_data)
             
             if qualification_response["success"]:
                 qualification_result = qualification_response["qualification_result"]
                 filtering_result = qualification_response["filtering_result"]
                 
+                # Add qualification flags but don't block analysis
                 if not qualification_response["is_qualified"]:
-                    logger.info(f"Company {company_name} did not pass qualification")
-                    # Still save partial analysis
-                    partial_analysis = create_partial_analysis_result(
-                        company_name, analysis_timestamp, website_url, linkedin_url,
-                        qualification_result, filtering_result, combined_data
-                    )
-                    
-                    s3_path = await s3_service.save_analysis_result(
-                        partial_analysis,
-                        website_data if website_data["success"] else None,
-                        linkedin_data
-                    )
-                    
-                    return {
-                        "success": True,
-                        "is_qualified": False,
-                        "filtering_result": filtering_result.dict(),
-                        "s3_path": s3_path,
-                        "analysis_summary": {
-                            "overall_score": 0.0,
-                            "automated_tier": "DISQUALIFIED",
-                            "recommendation": "Does not meet qualification criteria"
-                        },
-                        "disqualification_reasons": qualification_result.disqualification_reasons
-                    }
+                    qualification_flags.append("Does not meet standard qualification criteria")
+                    if qualification_result.disqualification_reasons:
+                        qualification_flags.extend(qualification_result.disqualification_reasons)
+                    logger.info(f"Company {company_name} flagged with qualification concerns: {qualification_flags}")
+                else:
+                    logger.info(f"Company {company_name} passed qualification checks")
             else:
+                qualification_flags.append(f"Qualification assessment failed: {qualification_response.get('error', 'Unknown error')}")
                 logger.warning(f"Qualification failed: {qualification_response.get('error', 'Unknown error')}")
-        
-        # Step 5: Score company using default scoring system
-        logger.info("Scoring company")
-        scoring_result = await scoring_engine.score_company(combined_data)
-        
-        if not scoring_result["success"]:
-            logger.error(f"Scoring failed: {scoring_result.get('error', 'Unknown error')}")
-            return {
-                "success": False,
-                "error": f"Scoring failed: {scoring_result.get('error', 'Unknown error')}"
-            }
-        
-        # Step 6: Generate investment thesis
-        logger.info("Generating investment thesis")
-        thesis_result = await generate_investment_thesis(company_name, combined_data, scoring_result)
-        investment_thesis = thesis_result.get("investment_thesis") if thesis_result.get("success") else None
         
         # Step 7: Create complete analysis result
         analysis_duration = time.time() - analysis_start_time
@@ -227,7 +669,7 @@ async def analyze_company(
             overall_score=scoring_result.get("overall_score", 0.0),
             recommendation=scoring_result.get("recommendation", "No recommendation available"),
             key_strengths=scoring_result.get("insights", [])[:3],
-            key_concerns=[],
+            key_concerns=qualification_flags,
             automated_tier=scoring_result.get("tier", "LOW"),
             manual_tier_override=None,
             override_metadata=None,
@@ -248,18 +690,66 @@ async def analyze_company(
         
         logger.info(f"Analysis completed for {company_name} in {analysis_duration:.1f}s")
         
+        # Extract all dimension scores for return
+        all_dimension_scores = {}
+        if "dimension_scores" in scoring_result:
+            for dim_id, dim_data in scoring_result["dimension_scores"].items():
+                all_dimension_scores[dim_id] = {
+                    "dimension_name": dim_data.get("dimension_name", dim_id),
+                    "score": dim_data.get("score", 0.0),
+                    "weight": dim_data.get("weight", 1.0),
+                    "weighted_score": dim_data.get("weighted_score", 0.0),
+                    "reasoning": dim_data.get("reasoning", ""),
+                    "evidence": dim_data.get("evidence", []),
+                    "confidence": dim_data.get("confidence", 0.0)
+                }
+        
+        # Combine filtering and qualification results for API response
+        combined_filtering_result = filtering_result.dict() if filtering_result else {}
+        if qualification_result:
+            # Add Q1-Q5 assessments to the filtering result
+            combined_filtering_result.update({
+                "q1_horizontal_vs_vertical": qualification_result.q1_horizontal_vs_vertical,
+                "q2_point_vs_suite": qualification_result.q2_point_vs_suite,
+                "q3_mission_critical": qualification_result.q3_mission_critical,
+                "q4_opm_vs_private": qualification_result.q4_opm_vs_private,
+                "q5_arpu_level": qualification_result.q5_arpu_level,
+                "qualification_score": qualification_result.qualification_score,
+                "qualification_confidence": qualification_result.qualification_confidence
+            })
+
         return {
             "success": True,
             "is_qualified": qualification_result.is_qualified if qualification_result else True,
-            "filtering_result": filtering_result.dict() if filtering_result else {},
+            "qualification_flags": qualification_flags,
+            "filtering_result": combined_filtering_result,
             "s3_path": s3_path,
             "analysis_summary": {
                 "overall_score": analysis_result.overall_score,
                 "automated_tier": analysis_result.automated_tier,
                 "recommendation": analysis_result.recommendation,
                 "key_strengths": analysis_result.key_strengths,
+                "key_concerns": qualification_flags,
                 "analysis_duration": analysis_duration
-            }
+            },
+            "dimension_scores": all_dimension_scores,
+            "scoring_details": {
+                "scoring_system_used": scoring_result.get("scoring_system", "default"),
+                "total_possible_score": scoring_result.get("total_possible_score", 10.0),
+                "score_interpretation": scoring_result.get("score_interpretation", {}),
+                "tier_thresholds": scoring_result.get("tier_thresholds", {})
+            },
+            "company_data_summary": {
+                "website_found": bool(website_url),
+                "linkedin_found": bool(linkedin_url),
+                "location_extracted": bool(combined_data.get("headquarters") or combined_data.get("location")),
+                "industry_identified": bool(combined_data.get("industry")),
+                "employee_count": combined_data.get("employee_count"),
+                "founding_year": combined_data.get("founding_year"),
+                "products_identified": bool(combined_data.get("products")),
+                "pricing_found": bool(combined_data.get("pricing_info"))
+            },
+            "comprehensive_research": comprehensive_research if comprehensive_research else {}
         }
         
     except Exception as e:

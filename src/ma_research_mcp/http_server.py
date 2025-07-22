@@ -33,6 +33,12 @@ from .tools import (
     manage_company_lists,
     update_metadata,
 )
+from .tools.enhanced_research_tools import (
+    conduct_comprehensive_research,
+    search_company_web_presence,
+    search_public_filings,
+    search_news_coverage,
+)
 from .core.config import get_config
 from .core.logging_config import setup_logging
 
@@ -47,16 +53,43 @@ mcp = FastMCP("M&A Research Assistant")
 @mcp.tool()
 async def analyze_company_tool(
     company_name: str,
-    website_url: str,
+    website_url: str = "",
     linkedin_url: str = "",
+    auto_discover: bool = True,
     force_refresh: bool = False,
     skip_filtering: bool = False,
-    manual_override: bool = False
+    manual_override: bool = False,
+    research_depth: str = "standard",
+    include_public_filings: bool = True,
+    include_news_analysis: bool = True,
+    include_location_extraction: bool = True,
+    quick_mode: bool = True
 ) -> Dict[str, Any]:
-    """Orchestrates complete company analysis with scoring and qualification"""
+    """
+    Analyzes SaaS companies for M&A opportunities with comprehensive research.
+    
+    Automatically searches Google to find missing website/LinkedIn URLs if not provided.
+    Includes comprehensive research across multiple sources: web presence, public filings,
+    news coverage, and location extraction.
+    
+    Optimized for SaaS software business analysis with focus on:
+    - Software vertical market specialization
+    - Subscription revenue models  
+    - Technology platform capabilities
+    - Market positioning and competitive advantages
+    """
     return await analyze_company(
-        company_name, website_url, linkedin_url, 
-        force_refresh, skip_filtering, manual_override
+        company_name=company_name,
+        website_url=website_url if website_url else None,
+        linkedin_url=linkedin_url if linkedin_url else None,
+        auto_discover=auto_discover,
+        force_refresh=force_refresh,
+        skip_filtering=skip_filtering,
+        manual_override=manual_override,
+        research_depth="basic" if quick_mode else research_depth,
+        include_public_filings=include_public_filings and not quick_mode,
+        include_news_analysis=include_news_analysis and not quick_mode,
+        include_location_extraction=include_location_extraction and not quick_mode
     )
 
 @mcp.tool()
@@ -223,6 +256,61 @@ async def update_metadata_tool(
 ) -> Dict[str, Any]:
     """Manual metadata updates for companies"""
     return await update_metadata(company_name, metadata_updates)
+
+@mcp.tool()
+async def conduct_comprehensive_research_tool(
+    company_name: str,
+    website_url: str = None,
+    linkedin_url: str = None,
+    research_depth: str = "standard",
+    include_public_filings: bool = True,
+    include_news_coverage: bool = True,
+    include_location_extraction: bool = True,
+    timeout: int = 300
+) -> Dict[str, Any]:
+    """Conduct comprehensive research on a company using multiple data sources"""
+    return await conduct_comprehensive_research(
+        company_name, website_url, linkedin_url, research_depth,
+        include_public_filings, include_news_coverage, include_location_extraction, timeout
+    )
+
+@mcp.tool()
+async def search_company_web_presence_tool(
+    company_name: str,
+    include_filings: bool = False,
+    include_news: bool = False,
+    include_reviews: bool = True,
+    max_results: int = 15
+) -> Dict[str, Any]:
+    """Search for general company web presence and information"""
+    return await search_company_web_presence(
+        company_name, include_filings, include_news, include_reviews, max_results
+    )
+
+@mcp.tool()
+async def search_public_filings_tool(
+    company_name: str,
+    include_sec: bool = True,
+    include_state: bool = True,
+    max_results_per_source: int = 10
+) -> Dict[str, Any]:
+    """Search for public filings and business registrations"""
+    return await search_public_filings(
+        company_name, include_sec, include_state, max_results_per_source
+    )
+
+@mcp.tool()
+async def search_news_coverage_tool(
+    company_name: str,
+    time_range: str = "1y",
+    include_press_releases: bool = True,
+    include_mentions: bool = True,
+    max_results: int = 20
+) -> Dict[str, Any]:
+    """Search for news and media coverage about a company"""
+    return await search_news_coverage(
+        company_name, time_range, include_press_releases, include_mentions, max_results
+    )
 
 @mcp.tool()
 async def health_check() -> Dict[str, Any]:

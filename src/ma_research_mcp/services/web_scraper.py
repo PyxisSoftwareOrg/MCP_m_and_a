@@ -16,6 +16,7 @@ from bs4 import BeautifulSoup
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from ..core.config import get_config
+from .discovery.location_extractor import LocationExtractor
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,7 @@ class WebScrapingService:
     def __init__(self):
         self.config = get_config()
         self.session = None
+        self.location_extractor = LocationExtractor()
         
         # Rate limiting
         self.requests_per_second = self.config.WEB_SCRAPING_REQUESTS_PER_SECOND
@@ -40,7 +42,8 @@ class WebScrapingService:
         self.priority_keywords = [
             'pricing', 'products', 'solutions', 'about', 'customers', 'case studies',
             'industries', 'vertical', 'enterprise', 'software', 'platform', 'suite',
-            'team', 'company', 'management', 'leadership', 'contact', 'features'
+            'team', 'company', 'management', 'leadership', 'contact', 'features',
+            'address', 'location', 'office', 'headquarters', 'offices'
         ]
         
         # Headers to appear as a real browser
@@ -199,7 +202,8 @@ class WebScrapingService:
         valuable_patterns = [
             r'/about', r'/products', r'/solutions', r'/pricing', 
             r'/customers', r'/industries', r'/platform', r'/features',
-            r'/team', r'/company', r'/leadership'
+            r'/team', r'/company', r'/leadership', r'/contact',
+            r'/offices', r'/locations', r'/headquarters', r'/address'
         ]
         
         for pattern in valuable_patterns:
@@ -275,6 +279,11 @@ class WebScrapingService:
             
             # Extract contact information
             content['contact_info'] = self._extract_contact_info(soup)
+            
+            # Extract location information
+            content['location_info'] = self.location_extractor.extract_locations_from_html(
+                html_content, url
+            )
             
             # Extract pricing information
             content['pricing_info'] = self._extract_pricing_info(soup)

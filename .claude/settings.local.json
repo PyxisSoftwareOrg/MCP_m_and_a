@@ -35,7 +35,11 @@
       "Bash(--name ma-research-mcp )",
       "Bash(-p 8000:8000 )",
       "Bash(--env-file .env )",
-      "Bash(ma-research-assistant)"
+      "Bash(ma-research-assistant)",
+      "Bash(docker exec:*)",
+      "Bash(grep:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker compose:*)"
     ],
     "deny": []
   }

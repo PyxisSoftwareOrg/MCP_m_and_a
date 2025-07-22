@@ -248,15 +248,36 @@ Provide your analysis as valid JSON following the required structure."""
             if not response["success"]:
                 return response
             
-            # Parse JSON response
+            # Parse JSON response - handle markdown code blocks
             try:
-                result = json.loads(response["response"])
+                response_text = response["response"]
+                
+                # Strip markdown code blocks if present
+                if "```json" in response_text:
+                    start = response_text.find("```json") + 7
+                    end = response_text.find("```", start)
+                    if end != -1:
+                        response_text = response_text[start:end].strip()
+                elif "```" in response_text:
+                    start = response_text.find("```") + 3
+                    end = response_text.find("```", start)
+                    if end != -1:
+                        response_text = response_text[start:end].strip()
+                
+                result = json.loads(response_text)
                 
                 # Validate required fields
                 required_fields = ["score", "confidence", "evidence", "reasoning", "data_sources"]
                 for field in required_fields:
                     if field not in result:
-                        result[field] = []
+                        if field in ["evidence", "data_sources"]:
+                            result[field] = []
+                        elif field == "reasoning":
+                            result[field] = "No reasoning provided"
+                        elif field == "confidence":
+                            result[field] = 0.5
+                        elif field == "score":
+                            result[field] = (min_score + max_score) / 2
                 
                 # Validate score range
                 score = float(result["score"])
@@ -275,7 +296,8 @@ Provide your analysis as valid JSON following the required structure."""
                 
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse LLM response as JSON: {e}")
-                logger.error(f"Response: {response['response'][:500]}...")
+                logger.error(f"Original response: {response['response'][:500]}...")
+                logger.error(f"Cleaned response: {response_text[:500]}...")
                 
                 return {
                     "success": False,
@@ -348,8 +370,58 @@ Focus on vertical market software potential, strategic fit, and acquisition valu
                 return response
             
             try:
-                thesis = json.loads(response["response"])
-                thesis["generated_at"] = time.time()
+                response_text = response["response"]
+                
+                # Strip markdown code blocks if present
+                if "```json" in response_text:
+                    start = response_text.find("```json") + 7
+                    end = response_text.find("```", start)
+                    if end != -1:
+                        response_text = response_text[start:end].strip()
+                elif "```" in response_text:
+                    start = response_text.find("```") + 3
+                    end = response_text.find("```", start)
+                    if end != -1:
+                        response_text = response_text[start:end].strip()
+                
+                thesis = json.loads(response_text)
+                
+                # Ensure required fields exist with proper types
+                if "generated_at" not in thesis:
+                    thesis["generated_at"] = str(int(time.time()))
+                elif isinstance(thesis["generated_at"], (int, float)):
+                    thesis["generated_at"] = str(int(thesis["generated_at"]))
+                    
+                # Ensure financial_profile exists with required fields
+                if "financial_profile" not in thesis:
+                    thesis["financial_profile"] = {}
+                
+                financial_profile = thesis["financial_profile"]
+                required_financial_fields = ["revenue_model", "profitability", "pricing_power"]
+                for field in required_financial_fields:
+                    if field not in financial_profile:
+                        financial_profile[field] = "Assessment not available"
+                
+                # Ensure top-level required fields exist
+                if "growth_trajectory" not in thesis:
+                    thesis["growth_trajectory"] = "Assessment not available"
+                if "strategic_rationale" not in thesis:
+                    thesis["strategic_rationale"] = "Assessment not available"
+                if "vms_alignment_score" not in thesis:
+                    thesis["vms_alignment_score"] = 5.0
+                if "execution_factors" not in thesis:
+                    thesis["execution_factors"] = []
+                if "integration_complexity" not in thesis:
+                    thesis["integration_complexity"] = "Assessment not available"
+                if "risk_assessment" not in thesis:
+                    thesis["risk_assessment"] = {}
+                if "mitigation_strategies" not in thesis:
+                    thesis["mitigation_strategies"] = []
+                if "recommendation" not in thesis:
+                    thesis["recommendation"] = "Requires further assessment"
+                if "confidence_level" not in thesis:
+                    thesis["confidence_level"] = 0.5
+                
                 thesis["thesis_type"] = thesis_type
                 thesis["model_used"] = response["model_used"]
                 
